@@ -23,7 +23,14 @@ def init_db():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     ''')
-    
+    cursor.execute('''
+       CREATE TABLE IF NOT EXISTS cookies (
+        id INTEGER PRIMARY KEY,
+        url TEXT,
+        cookies TEXT,
+        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    ''')
     # Create cookies table
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS cookies (
