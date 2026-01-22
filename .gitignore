@@ -1,0 +1,17 @@
+# Screenshots folder
+screenshots/
+
+# Database files
+*.db
+
+# Log files
+*.log
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual environments
+venv/
+env/
